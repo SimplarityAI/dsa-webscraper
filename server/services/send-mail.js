@@ -78,10 +78,11 @@ async function sendScheduledLeadsEmail(emailList, totalNewProjects, qualifiedPro
         if (!fs.existsSync(reportsDir)) {
             fs.mkdirSync(reportsDir, { recursive: true });
         }
+        console.log(`Saving report to ${filePath}`);
         fs.writeFileSync(filePath, excelBuffer);
 
-        const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:8000';
-        downloadUrl = `${baseUrl}/public/reports/${filename}`;
+        const frontendBaseUrl = process.env.FRONTEND_BASE_URL || 'http://localhost:3000';
+        downloadUrl = `${frontendBaseUrl}/download-file/${filename}`;
         console.log(`Report saved: ${filePath} -> ${downloadUrl}`);
     }
 
@@ -99,9 +100,9 @@ This email was sent automatically.`;
 <html><body style="font-family: Arial, sans-serif; margin: 16px;">
 <h3>Leads summary</h3>
 <p><strong>Total new projects:</strong> ${totalNewProjects}</p>
-<p><strong>Qualified (${leadTypeName}):</strong> ${qualifiedProjects.length}</p>
+<p><strong>Qualified:</strong> ${qualifiedProjects.length}</p>
 <p><strong>Duration:</strong> ${durationText}</p>
-${downloadUrl ? `<p><a href="${downloadUrl}">Download Excel report</a></p>` : '<p>No qualifying projects this run.</p>'}
+${downloadUrl ? `<p><a href="${downloadUrl}">Open download page</a></p>` : '<p>No qualifying projects this run.</p>'}
 <hr/>
 <p style="color:#666;font-size:12px;">This email was sent automatically.</p>
 </body></html>`;
