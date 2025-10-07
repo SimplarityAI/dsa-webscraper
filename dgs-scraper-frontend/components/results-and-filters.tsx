@@ -134,54 +134,28 @@ export default function ResultsAndFilters({ onSettingsChange, onSave }: ResultsA
     try {
       console.log("Downloading with custom filters:", customFilters)
       
-      // Get all projects from all categories for filtering (including ignored)
-      const [strongLeads, weakLeads, watchlist, ignored] = await Promise.all([
-        apiClient.getCategoryProjects('strongLeads', 10000),
-        apiClient.getCategoryProjects('weakLeads', 10000),
-        apiClient.getCategoryProjects('watchlist', 10000),
-        apiClient.getCategoryProjects('ignored', 10000)
-      ]) as CategoryResponse[]
-      
-      const allProjects: Project[] = [
-        ...strongLeads.projects,
-        ...weakLeads.projects,
-        ...watchlist.projects,
-        ...ignored.projects
-      ]
-      
-      // Apply custom filters
-      const filteredProjects = allProjects.filter(project => {
-        // Amount filter
-        if (customFilters.minAmount) {
-          const projectAmount = parseFloat(String(project['Estimated Amt'] || '0').replace(/[$,]/g, ''))
-          const minAmount = parseFloat(customFilters.minAmount)
-          if (projectAmount < minAmount) return false
-        }
-        
-        // Received date filter
-        if (customFilters.receivedAfter) {
-          const receivedDate = new Date(project['Received Date'] || '')
-          const filterDate = new Date(customFilters.receivedAfter)
-          if (receivedDate < filterDate) return false
-        }
-        
-        // County filter
-        if (customFilters.county && customFilters.county !== "All Counties") {
-          // Find the selected county's code
-          const selectedCounty = countiesWithData.find(c => c.name === customFilters.county)
-          if (selectedCounty && project['county_id'] !== selectedCounty.code) return false
-        }
-        
-        return true
-      })
-      
-      if (filteredProjects.length === 0) {
-        alert('No projects found matching your custom filters')
-        return
+      // Server-side custom export to avoid large payloads
+      // Map selected county name to code for backend matching
+      let countyCode: string | undefined = undefined
+      if (customFilters.county && customFilters.county !== 'All Counties') {
+        const selectedCounty = countiesWithData.find(c => c.name === customFilters.county)
+        countyCode = selectedCounty?.code || customFilters.county
       }
-      
-      // Send filtered projects to backend for Excel generation
-      await generateExcelFromProjects(filteredProjects, 'custom_export.xlsx')
+
+      const blob = await apiClient.downloadCustomExcel({
+        minAmount: customFilters.minAmount || undefined,
+        receivedAfter: customFilters.receivedAfter || undefined,
+        county: countyCode,
+      })
+
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'custom_export.xlsx'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
       
     } catch (error) {
       console.error('Error with custom download:', error)
@@ -225,42 +199,19 @@ export default function ResultsAndFilters({ onSettingsChange, onSave }: ResultsA
 
   const downloadExcelFromBackend = async (category: string, filename?: string) => {
     try {
-      // Fetch projects first
-      const response = await apiClient.getCategoryProjects(category, 10000) as CategoryResponse
-      const projects = response.projects
-      
-      if (projects.length === 0) {
-        alert(`No projects found in ${getCategoryName(category)} category`)
-        return
-      }
-      
-      // Generate Excel from fetched projects
+      const blob = await apiClient.downloadCategoryExcel(category)
       const downloadFilename = filename || `${category}_projects.xlsx`
-      await generateExcelFromProjects(projects, downloadFilename)
-      
-    } catch (error) {
-      console.error('Error downloading Excel:', error)
-      alert('Failed to download Excel. Please try again.')
-    }
-  }
-
-  const generateExcelFromProjects = async (projects: Project[], filename: string) => {
-    try {
-      const blob = await apiClient.generateCustomExcel(projects, filename)
-      
-      // Create blob and download
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = filename
+      link.download = downloadFilename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-      
     } catch (error) {
-      console.error('Error generating Excel:', error)
-      alert('Failed to generate Excel. Please try again.')
+      console.error('Error downloading Excel:', error)
+      alert('Failed to download Excel. Please try again.')
     }
   }
 

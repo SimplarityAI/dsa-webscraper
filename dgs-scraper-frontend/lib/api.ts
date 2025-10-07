@@ -157,6 +157,32 @@ class ApiClient {
 
     return response.blob();
   }
+
+  // Download Excel by category without sending project payload
+  async downloadCategoryExcel(category: string, limit?: number): Promise<Blob> {
+    const url = `${this.baseURL}/api/categories/${encodeURIComponent(category)}/export${
+      typeof limit === 'number' ? `?limit=${limit}` : ''
+    }`;
+    const response = await fetch(url, { method: 'GET' });
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+    return response.blob();
+  }
+
+  // Download custom Excel with server-side filters
+  async downloadCustomExcel(filters: { minAmount?: string; receivedAfter?: string; county?: string }): Promise<Blob> {
+    const url = `${this.baseURL}/api/export/custom`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(filters || {}),
+    });
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+    return response.blob();
+  }
 }
 
 export const apiClient = new ApiClient();
